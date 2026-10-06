@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MtM – Saga panel test</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; font: 13px/1.45 system-ui, sans-serif; background: #1f2530; color: #e6e9ef; }
+  header { padding: 12px 14px; border-bottom: 1px solid #333c4a; }
+  h1 { font-size: 14px; margin: 0 0 4px; }
+  .muted { color: #9aa4b2; font-size: 12px; }
+  .event { margin: 12px 14px; padding: 10px 12px; border: 1px solid #3b82f6; border-radius: 8px; background: #1e2b42; }
+  .event b { display: block; font-size: 12px; color: #9aa4b2; font-weight: 500; }
+  .event span { font-size: 15px; font-weight: 600; word-break: break-all; }
+  button { margin: 0 14px 8px; padding: 6px 10px; border-radius: 6px; border: 1px solid #4b5563; background: #2a3342; color: #e6e9ef; cursor: pointer; }
+  #log { margin: 0 14px 14px; }
+  .msg { border: 1px solid #333c4a; border-radius: 6px; margin-bottom: 8px; padding: 8px; }
+  .msg .meta { font-size: 11px; color: #9aa4b2; margin-bottom: 4px; }
+  pre { margin: 0; white-space: pre-wrap; word-break: break-all; font: 11.5px/1.4 ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<header>
+  <h1>MtM – Saga panel test</h1>
+  <div class="muted" id="where"></div>
+</header>
+
+<div class="event"><b>Event / story ID received from Saga</b><span id="eventId">waiting…</span></div>
+<div class="event"><b>Event title</b><span id="eventTitle">waiting…</span></div>
+
+<button id="resend">Send "loaded" again</button>
+<button id="info">Ask Saga for printInfo</button>
+<div id="log"></div>
+
+<script>
+  const log = document.getElementById('log');
+  document.getElementById('where').textContent =
+    'Embedded: ' + (window.parent !== window) + ' · referrer: ' + (document.referrer || 'none') + ' · url: ' + location.href;
+
+  function show(direction, origin, data) {
+    const div = document.createElement('div');
+    div.className = 'msg';
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = new Date().toLocaleTimeString() + ' · ' + direction + (origin ? ' · ' + origin : '');
+    const pre = document.createElement('pre');
+    pre.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    div.append(meta, pre);
+    log.prepend(div);
+  }
+
+  function parse(d) {
+    if (typeof d === 'string') { try { return JSON.parse(d); } catch { return d; } }
+    return d;
+  }
+
+  window.addEventListener('message', (e) => {
+    const data = parse(e.data);
+    show('received', e.origin, data);
+    const p = data && (data.payload || data.data || data);
+    const id = p && (p.id || p.mId || p.storyId || p.eventId);
+    const title = p && (p.title || p.mTitle);
+    if (id) document.getElementById('eventId').textContent = id;
+    if (title) document.getElementById('eventTitle').textContent = title;
+  });
+
+  function send(msg) {
+    // Saga's origin is unknown to us yet, so use '*' for this test only (nothing secret is sent).
+    window.parent.postMessage(msg, '*');
+    show('sent', '', msg);
+  }
+
+  send({ action: 'loaded' });
+  document.getElementById('resend').onclick = () => send({ action: 'loaded' });
+  document.getElementById('info').onclick = () => send({ action: 'printInfo' });
+</script>
+</body>
+</html>
